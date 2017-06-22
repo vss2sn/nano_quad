@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node name="c" pkg="nano_quad" type="controller" output="screen">
+    </node>
+
+  <!-- run vicon bridge -->
+  <include file="$(find vicon_bridge)/launch/vicon.launch"/>
+
+</launch>
