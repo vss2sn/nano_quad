@@ -10,41 +10,36 @@ class controller
 private:
     ros::Publisher vel;
 	  ros::Subscriber pos;
-    //ros::Subscriber old_vel;
     geometry_msgs::Twist new_vel;
+    geometry_msgs::Twist new_abs_vel;
 
-    double kp;
-    double kd;
-    double ki;
+    double kp[3];
+    double kd[3];
+    double ki[3];
     double minOutput;
     double maxOutput;
     double integratorMin;
     double integratorMax;
-    double integralx;
-    double integraly;
-    double integralz;
-    double previousErrorx;
-    double previousErrory;
-    double previousErrorz;
-    double gx;
-  	double gy;
-  	double gz;
+    double integral[3];
+    double integralangz;
+
+    double previousError[3];
+    double previousErrorangz;
+    double error[3];
+    double gp[3];
     double agz;
-    ros::Time previousTimex;
-    ros::Time previousTimey;
-    ros::Time previousTimez;
-  	tf::TransformListener m_listener;
+    double cp[3];
+    double output[3];
+    int c;
+	  ros::Time previousTime;
+    ros::Time previousTimeangz;
+
+	tf::TransformListener m_listener;
   	tf::StampedTransform transform;
 
 public:
 	controller(const ros::NodeHandle& nh):
-				kp(0.2),
-				kd(0.1),
-				ki(0.01),
-				gx(0.0),
-				gy(0.0),
-				gz(0.5),
-        agz(0.0),
+		    	agz(0.0),
 				m_listener(),
 				maxOutput(0.5),
 				minOutput(-0.5),
@@ -52,115 +47,91 @@ public:
 				integratorMax(0.01)
 	{
 		ros::NodeHandle n;
-		vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
+    n.getParam("/nano_quad/kix",ki[0]);
+    n.getParam("/nano_quad/kiy",ki[1]);
+    n.getParam("/nano_quad/kiz",ki[2]);
+    n.getParam("/nano_quad/kdx",kd[0]);
+    n.getParam("/nano_quad/kdy",kd[1]);
+    n.getParam("/nano_quad/kdz",kd[2]);
+    n.getParam("/nano_quad/kpx",kp[0]);
+    n.getParam("/nano_quad/kpy",kp[1]);
+    n.getParam("/nano_quad/kpz",kp[2]);
+    n.getParam("/nano_quad/gx",gp[0]);
+    n.getParam("/nano_quad/gy",gp[1]);
+    n.getParam("/nano_quad/gz",gp[2]);
+
+    vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
 		pos = n.subscribe("/vicon/bebop/bebop",1,&controller::pid_ctrl,this);
-    //old_vel = n.subscribe("/bebop/cmd_vel",1,&controller::randomcallback,this);
+
 	}
 
-  void randomcallback(const geometry_msgs::Twist& old_vel){}
+	void randomcallback(const geometry_msgs::Twist& old_vel){}
 
 	void pid_ctrl(const geometry_msgs::TransformStamped& pos)
 	{
 
+    //std::cout<<ki[1]<<std::endl;
 		m_listener.lookupTransform("/world","/vicon/bebop/bebop", ros::Time(0), transform);
-		new_vel.linear.x = updatex(transform.getOrigin().x(),gx);
-		new_vel.linear.y = updatey(transform.getOrigin().y(),gy);
-		new_vel.linear.z = updatez(transform.getOrigin().z(),gz);
-    new_vel.angular.z = updateangz(transform.getRotation().z(),agz);
-    //std::cout<<transform.getRotation().z()<<std::endl;
-		new_vel.linear.x=std::max(-0.2,(std::min(new_vel.linear.x,0.2)));
-		new_vel.linear.y=std::max(-0.2,(std::min(new_vel.linear.y,0.2)));
-		new_vel.linear.z=std::max(-0.2,(std::min(new_vel.linear.z,0.2)));
-    new_vel.angular.z=std::max(-0.01,(std::min(new_vel.angular.z,0.01)));
+    cp[0]=transform.getOrigin().x();
+    cp[1]=transform.getOrigin().y();
+    cp[2]=transform.getOrigin().z();
+		update();
+
+//    std::cout<<output[0]<<std::endl;
+//    std::cout<<output[1]<<std::endl;
+//    std::cout<<output[2]<<std::endl;
+//    std::cout<<std::endl;
+    std::cout<<transform.getRotation().z()<<std::endl;
+    new_vel.linear.x = cos(M_PI*transform.getRotation().z())*output[0]-sin(M_PI*transform.getRotation().z())*output[1];
+    new_vel.linear.y = sin(M_PI*transform.getRotation().z())*output[0]+cos(M_PI*transform.getRotation().z())*output[1];
+
+		new_vel.linear.x=std::max(-0.05,(std::min(new_vel.linear.x,0.05)));
+		new_vel.linear.y=std::max(-0.05,(std::min(new_vel.linear.y,0.05)));
+		new_vel.linear.z=std::max(-0.05,(std::min(output[2],0.05)));
+//		new_vel.angular.z=std::max(-0.7,(std::min(new_vel.angular.z,0.7)));
+
+//  	std::cout<<new_vel.angular.x<<std::endl;
+//  	std::cout<<new_vel.angular.y<<std::endl;
+//    std::cout<<new_vel.angular.z<<std::endl;
+//    std::cout<<std::endl;
+
+		new_vel.linear.x=0.0;
+		new_vel.linear.y=0.0;
+		new_vel.linear.z=0.0;
+	  new_vel.angular.z=0;
+
 		vel.publish(new_vel);
+
 	}
 
-//  X
-    double updatex(double value, double targetValue)
-    {
-        ros::Time time = ros::Time::now();
-        double dt = time.toSec() - previousTimex.toSec();
-        double error = targetValue - value;
+  void update()
+  {
+      ros::Time time = ros::Time::now();
+      double dt = time.toSec() - previousTime.toSec();
+      for (c=0;c<3;c++)
+      {
+    //    std::cout<<"Goal point:"<<std::endl;
+    //    std::cout<<gp[c]<<std::endl;
+    //    std::cout<<"Current point:"<<std::endl;
+    //    std::cout<<cp[c]<<std::endl;
 
-        integralx += error * dt;
-        integralx = std::max(std::min(integralx, integratorMax), integratorMin);
-        double p = kp * error;
+        error[c] = gp[c] - cp[c];
+        integral[c] += error[c] * dt;
+        integral[c] = std::max(std::min(integral[c], integratorMax), integratorMin);
+        double p = kp[c] * error[c];
         double d = 0;
         if (dt > 0)
         {
-            d = kd * (error - previousErrorx) / dt;
+            d = kd[c] * (error[c] - previousError[c]) / dt;
         }
-        double i = ki * integralx;
-        double output = p + d + i;
-        previousErrorx = error;
-        previousTimex = time;
-        return std::max(std::min(output, maxOutput), minOutput);
-    }
+        double i = ki[c] * integral[c];
+        output[c] = (p + d + i)*1;
+        previousError[c] = error[c];
+      }
+      previousTime = time;
 
-//Y
-    double updatey(double value, double targetValue)
-    {
-        ros::Time time = ros::Time::now();
-        double dt = time.toSec() - previousTimey.toSec();
-        double error = targetValue - value;
+  }
 
-        integraly += error * dt;
-        integraly = std::max(std::min(integraly, integratorMax), integratorMin);
-        double p = kp * error;
-        double d = 0;
-        if (dt > 0)
-        {
-            d = kd * (error - previousErrory) / dt;
-        }
-        double i = ki * integraly;
-        double output = p + d + i;
-        previousErrory = error;
-        previousTimey = time;
-        return std::max(std::min(output, maxOutput), minOutput);
-    }
-
-//Z
-    double updatez(double value, double targetValue)
-    {
-        ros::Time time = ros::Time::now();
-        double dt = time.toSec() - previousTimez.toSec();
-        double error = targetValue - value;
-
-        integralz += error * dt;
-        integralz = std::max(std::min(integralz, integratorMax), integratorMin);
-        double p = kp * error;
-        double d = 0;
-        if (dt > 0)
-        {
-            d = kd * (error - previousErrorz) / dt;
-        }
-        double i = ki * integralz;
-        double output = p + d + i;
-        previousErrorz = error;
-        previousTimez = time;
-        return std::max(std::min(output, maxOutput), minOutput);
-    }
-
-    double updateangz(double value, double targetValue)
-    {
-        ros::Time time = ros::Time::now();
-        double dt = time.toSec() - previousTimez.toSec();
-        double error = targetValue - value;
-
-        integralz += error * dt;
-        integralz = std::max(std::min(integralz, integratorMax), integratorMin);
-        double p = kp * error;
-        double d = 0;
-        if (dt > 0)
-        {
-            d = kd * (error - previousErrorz) / dt;
-        }
-        double i = ki * integralz;
-        double output =0.1*(p + d + i);
-        previousErrorz = error;
-        previousTimez = time;
-        return std::max(std::min(output, maxOutput), minOutput);
-    }
 
 };
 

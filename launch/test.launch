@@ -1,7 +1,19 @@
 <?xml version="1.0"?>
 <launch>
 
-    <node name="c" pkg="nano_quad" type="controller" output="screen">
+    <node name="nano_quad" pkg="nano_quad" type="controller" output="screen">
+		<param name="kpx" value="0.4"/>
+		<param name="kpy" value="0.4"/>
+		<param name="kpz" value="0.4"/>
+		<param name="kdx" value="0.2"/>
+		<param name="kdy" value="0.2"/>
+		<param name="kdz" value="0.2"/>
+		<param name="kix" value="0.01"/>
+		<param name="kiy" value="0.01"/>
+		<param name="kiz" value="0.01"/>
+		<param name="gx" value="0.5"/>
+		<param name="gy" value="0.5"/>
+		<param name="gz" value="0.5"/>
     </node>
 
   <!-- run vicon bridge -->
