@@ -25,7 +25,7 @@ add_executable(controller src/controller.cpp)
 target_link_libraries(controller ${catkin_LIBRARIES})
 
 add_dependencies(controller beginner_tutorials_generate_messages_cpp)
-add_dependencies(controller ${PROJECT_NAME}_gencfg)
+add_dependencies(controller ${PROJECT_NAME}_gencfg ${catkin_EXPORTED_TRAGETS})
 
 
 # %EndTag(FULLTEXT)%

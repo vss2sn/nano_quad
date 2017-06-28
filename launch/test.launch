@@ -2,7 +2,7 @@
 <launch>
 
     <node name="nano_quad" pkg="nano_quad" type="controller" output="screen">
-<!--		<param name="kpx" value="0.4"/>-->
+<!--		<param name="kpx" value="0.4"/>
 		<param name="kpy" value="0.4"/>
 		<param name="kpz" value="0.4"/>
 		<param name="kproll" value="0.4"/>
@@ -28,7 +28,7 @@
 		<param name="gz" value="0.5"/>
 		<param name="groll" value="0.0"/>
 		<param name="gpitch" value="0.0"/>
-		<param name="gyaw" value="0.0"/>
+		<param name="gyaw" value="0.0"/>-->
     </node>
 
   <!-- run vicon bridge -->

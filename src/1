@@ -1,0 +1,23 @@
+void update2()
+{
+    ros::Time time = ros::Time::now();
+    double dt = time.toSec() - previousTime.toSec();
+    for (c=0;c<6;c++)
+    {
+      error_v[c] = gv[c] - cv[c];
+      integral_v[c] += error_v[c] * dt;
+      integral_v[c] = std::max(std::min(integral_v[c], integratorMax), integratorMin);
+      double p = kp[c] * error_v[c];
+      double d = 0;
+      if (dt > 0)
+      {
+          d = kd[c] * (error_v[c] - previouserror_v[c]) / dt;
+      }
+      double i = ki[c] * integral_v[c];
+      output_p[c] = (p + d + i);
+      previouserror_v[c] = error_v[c];
+      output[c]=std::max(minOutput,(std::min(output[c],maxOutput)));
+      g[v]
+    }
+    previousTime = time;
+}
