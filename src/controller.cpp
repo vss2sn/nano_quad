@@ -35,6 +35,12 @@ private:
     double output[6];
     int c;
 
+    std::string nn;
+    std::string world_frame_var;
+    std::string bot_frame_var;
+    std::string world_frame;
+    std::string bot_frame;
+
 	  ros::Time previousTime;
     ros::Time previousTimeangz;
 
@@ -91,8 +97,11 @@ public:
     ros::param::get("/nano_quad/gpitch",gp[4]);
     ros::param::get("/nano_quad/gyaw",gp[5]);
 */
-    ros::param::get("/nano_quad/world_frame", world_frame);
-    ros::param::get("/nano_quad/bot_frame", bot_frame);
+    nn = ros::this_node::getName();
+    world_frame_var = strcat("/",nn,"/world_frame");
+    bot_frame_var = strcat("/",nn,"/bot_frame");
+    ros::param::get(world_frame_var, world_frame);
+    ros::param::get(bot_frame_var, bot_frame);
 
     for (c=0;c<6;c++)
     {
@@ -100,7 +109,7 @@ public:
     }
 
     vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
-		pos = n.subscribe("/vicon/bebop/bebop",1,&controller::pid_ctrl,this);
+		pos = n.subscribe(bot_frame,1,&controller::pid_ctrl,this);
 
 	}
 
