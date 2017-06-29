@@ -24,10 +24,6 @@ private:
 	  ros::Subscriber pos;
     geometry_msgs::Twist new_vel;
 
-//    double kp[6];
-//    double kd[6];
-//    double ki[6];
-
     double integratorMin;
     double integratorMax;
     double integral[6];
@@ -35,7 +31,6 @@ private:
 
     double previousError[6];
     double error[6];
-//    double gp[6];
     double cp[6];
     double output[6];
     int c;
@@ -96,60 +91,24 @@ public:
     ros::param::get("/nano_quad/gpitch",gp[4]);
     ros::param::get("/nano_quad/gyaw",gp[5]);
 */
+    ros::param::get("/nano_quad/world_frame", world_frame);
+    ros::param::get("/nano_quad/bot_frame", bot_frame);
+
     for (c=0;c<6;c++)
     {
       cv[c]=0;
     }
 
-//    dynamic_reconfigure::Server<nano_quad::tunerConfig> server;
-//    dynamic_reconfigure::Server<nano_quad::tunerConfig>::CallbackType f;
-//    f = boost::bind(&controller::callback, this, _1, _2);
-//    server.setCallback(f);
-//    ROS_INFO("Dynamic Reconfigure Server Started");
-
     vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
-		pos = n.subscribe("/vicon/bebop2/bebop2",1,&controller::pid_ctrl,this);
+		pos = n.subscribe("/vicon/bebop/bebop",1,&controller::pid_ctrl,this);
 
 	}
-/*
-  void callback(nano_quad::tunerConfig &config, uint32_t level)
-  {
-    ROS_INFO("INCALLBACK");
-  	kp[0] = config.kpx;
-  	ki[0] = config.kix;
-  	kd[0] = config.kdx;
-
-    kp[1] = config.kpy;
-  	ki[1] = config.kiy;
-  	kd[1] = config.kdy;
-
-    kp[2] = config.kpz;
-  	ki[2] = config.kiz;
-  	kd[2] = config.kdz;
-
-    std::cout<<config.kpx<<std::endl;
-    std::cout<<std::endl;
-
-    kp_v[0] = config.kp_vx;
-    ki_v[0] = config.ki_vx;
-    kd_v[0] = config.kd_vx;
-
-    kp_v[1] = config.kp_vy;
-    ki_v[1] = config.ki_vy;
-    kd_v[1] = config.kd_vy;
-
-    kp_v[2] = config.kp_vz;
-    ki_v[2] = config.ki_vz;
-    kd_v[2] = config.kd_vz;
-
-  }
-*/
 
 	void randomcallback(const geometry_msgs::Twist& old_vel){}
 
 	void pid_ctrl(const geometry_msgs::TransformStamped& pos)
 	{
-		m_listener.lookupTransform("/world","/vicon/bebop2/bebop2", ros::Time(0), transform);
+		m_listener.lookupTransform(world_frame, bot_frame, ros::Time(0), transform);
 
     tfScalar roll, pitch, yaw;
     tf::Matrix3x3(
@@ -173,10 +132,9 @@ public:
     std::cout<<output[1]<<std::endl;
     std::cout<<output[2]<<std::endl;
     std::cout<<std::endl;
-
     std::cout<<roll<<std::endl;
     std::cout<<pitch<<std::endl;
-    std::cout<<yaw<<std::endl;
+	std::cout<<yaw<<std::endl;
     std::cout<<std::endl;
 */
     new_vel.linear.x = cos(-yaw)*output[0]-sin(-yaw)*output[1];
@@ -186,9 +144,9 @@ public:
     new_vel.angular.y = output[4];
     new_vel.angular.z = output[5];
 
-	new_vel.linear.x=std::max(minOutput,(std::min(new_vel.linear.x,maxOutput)));
-	new_vel.linear.y=std::max(minOutput,(std::min(new_vel.linear.y,maxOutput)));
-	new_vel.linear.z=std::max(minOutput,(std::min(new_vel.linear.z,maxOutput)));
+	  new_vel.linear.x=std::max(minOutput,(std::min(new_vel.linear.x,maxOutput)));
+  	new_vel.linear.y=std::max(minOutput,(std::min(new_vel.linear.y,maxOutput)));
+	  new_vel.linear.z=std::max(minOutput,(std::min(new_vel.linear.z,maxOutput)));
     new_vel.angular.x=std::max(minOutput,(std::min(new_vel.angular.x,maxOutput)));
     new_vel.angular.y=std::max(minOutput,(std::min(new_vel.angular.y,maxOutput)));
     new_vel.angular.z=std::max(minOutput,(std::min(new_vel.angular.z,maxOutput)));
@@ -199,12 +157,12 @@ public:
   	std::cout<<new_vel.angular.x<<std::endl;
   	std::cout<<new_vel.angular.y<<std::endl;
     std::cout<<new_vel.angular.z<<std::endl;
-
-		new_vel.linear.x=0.0;
-		new_vel.linear.y=0.0;
-		new_vel.linear.z=0.0;
     std::cout<<std::endl;
-	  new_vel.angular.x=0;
+
+	  new_vel.linear.x=0.0;
+	  new_vel.linear.y=0.0;
+	  new_vel.linear.z=0.0;
+    new_vel.angular.x=0;
     new_vel.angular.y=0;
     new_vel.angular.z=0;
 */
@@ -286,6 +244,7 @@ public:
 void callback(nano_quad::tunerConfig &config, uint32_t level)
 {
   ROS_INFO("INCALLBACK");
+
   kp[0] = config.kpxy;
   ki[0] = config.kixy;
   kd[0] = config.kdxy;
@@ -349,13 +308,13 @@ int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "controller");
 	ros::NodeHandle nh("~");
-    ros::Rate r(int(50));
-	  controller ctrl(nh);
-    dynamic_reconfigure::Server<nano_quad::tunerConfig> server;
-    dynamic_reconfigure::Server<nano_quad::tunerConfig>::CallbackType f;
-    f = boost::bind(&callback,  _1, _2 );
-    server.setCallback(f);
+  ros::Rate r(int(50));
+  controller ctrl(nh);
+  dynamic_reconfigure::Server<nano_quad::tunerConfig> server;
+  dynamic_reconfigure::Server<nano_quad::tunerConfig>::CallbackType f;
+  f = boost::bind(&callback,  _1, _2 );
+  server.setCallback(f);
 
-  	ros::spin();
+	ros::spin();
 	return 0;
 }
