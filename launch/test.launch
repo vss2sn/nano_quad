@@ -2,8 +2,6 @@
 <launch>
 
     <node name="nano_quad" pkg="nano_quad" type="controller" output="screen">
-    <param name="world_frame" value="/world">
-    <param name="bot_frame" value="/vicon/bebop/bebop">
 <!--		<param name="kpx" value="0.4"/>
 		<param name="kpy" value="0.4"/>
 		<param name="kpz" value="0.4"/>
