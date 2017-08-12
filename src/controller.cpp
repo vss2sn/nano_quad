@@ -15,6 +15,7 @@ int mcv;
 
 double kps;
 double kis;
+double kds;
 
 double kp[6];
 double kd[6];
@@ -40,7 +41,7 @@ private:
     ros::Subscriber pos;
     geometry_msgs::Twist new_vel;
 
-    static const int nhist = 40;	
+    static const int nhist = 15;	
     double integratorMin;
     double integratorMax;
     double integral[6];
@@ -62,7 +63,7 @@ private:
     
 	double pos_history[6][nhist];
 	double step_i;
-
+	double prev_sum;
 	ros::Time previousTime;
 
     tf::TransformListener m_listener;
@@ -76,6 +77,7 @@ public:
 
 	{
 		c2=0;
+		prev_sum=0;
 		c2_max=nhist;
 		ros::NodeHandle n;
 		vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1); // get arg from launch file
@@ -131,9 +133,10 @@ public:
 
 	double add_step()
 	{
+		ros::Time time = ros::Time::now();
 		double slope[nhist];
 		double sum = 0;
-		ros::Time time = ros::Time::now();
+		double dt = time.toSec() - previousTime.toSec();
 		for(int i=c2+1;i<c2_max;i++)
 		{
 			slope[i] = (pos_history[2][i]-pos_history[2][i-1])/(pos_history[1][i]-pos_history[1][i-1]);
@@ -144,7 +147,6 @@ public:
 				slope[i]=0;
 			}
 			sum=sum+slope[i];
-//			std::cout<<std::abs(pos_history[2][i]-pos_history[2][i-1])<<std::endl;
 		}
 		for(int i=1;i<=c2;i++)
 		{
@@ -156,9 +158,13 @@ public:
 				slope[i]=0;
 			}
 			sum=sum+slope[i];
-//			std::cout<<std::abs(pos_history[2][i]-pos_history[2][i-1])<<std::endl;
 		}
+		//slope ranges from indices [1,39]
 		sum=sum/c2_max;
+	    if (dt > 0)
+	    {
+	    	double d = kds*(sum-prev_sum)/dt;
+	    }
 		double p = std::abs(kps*sum);		
 		// Adjust additional input for relative position to goal height as well as direction of motion
 		if (cp[2]-gp[2]>0){
@@ -181,7 +187,8 @@ public:
 		std::cout<<p<<std::endl;
 		std::cout<<std::endl;
 		step_i+=sum;
-		double i = kis*step_i;
+		prev_sum=sum;
+		double i = kis*step_i;	
 		return (p+i);			
 	}
 
@@ -279,6 +286,7 @@ void callback(nano_quad::tunerConfig &config, uint32_t level)
 	maxOutput = config.maxOutput; // Minimum oputput to roll and pitch for safety
 	kps = config.kps; // kp for slope
 	kis = config.kis; // ki for slope	
+	kds = config.kds; // ki for slope	
 }
 
 int main(int argc, char **argv)
