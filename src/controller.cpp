@@ -15,7 +15,6 @@ int mcv;
 
 double kps;
 double kis;
-double kds;
 
 double kp[6];
 double kd[6];
@@ -32,6 +31,8 @@ double gv; //Currently restircted to y direction
 double minOutput;
 double maxOutput;
 
+double sf;
+
 class controller
 {
 
@@ -41,7 +42,7 @@ private:
     ros::Subscriber pos;
     geometry_msgs::Twist new_vel;
 
-    static const int nhist = 15;	
+    static const int nhist = 10;	
     double integratorMin;
     double integratorMax;
     double integral[6];
@@ -63,7 +64,10 @@ private:
     
 	double pos_history[6][nhist];
 	double step_i;
-	double prev_sum;
+	double prev_add;
+	double prev_dir;
+	double imax;
+
 	ros::Time previousTime;
 
     tf::TransformListener m_listener;
@@ -76,8 +80,9 @@ public:
 				integratorMax(0.01)
 
 	{
+		imax=500;
+		prev_add=0;
 		c2=0;
-		prev_sum=0;
 		c2_max=nhist;
 		ros::NodeHandle n;
 		vel = n.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1); // get arg from launch file
@@ -118,25 +123,25 @@ public:
 		if (flag==1){
 			add = add_step();
 		}
-	
+		prev_add=add;
+			
 		update(); // Get update input to controller
 
 		new_vel.linear.x = cos(-yaw)*output[0]-sin(-yaw)*output[1];
 		new_vel.linear.y = sin(-yaw)*output[0]+cos(-yaw)*output[1];
 		new_vel.linear.z = output[2]+add; // Add aditional input
-		new_vel.angular.z = output[ 5];
-		new_vel.linear.x=std::max(minOutput,(std::min(new_vel.linear.x,maxOutput)));
-		new_vel.linear.y=std::max(minOutput,(std::min(new_vel.linear.y,maxOutput)));
+		new_vel.angular.z = output[5];
+//		new_vel.linear.x=std::max(minOutput,(std::min(new_vel.linear.x,maxOutput)));
+//		new_vel.linear.y=std::max(minOutput,(std::min(new_vel.linear.y,maxOutput)));
 		vel.publish(new_vel); //Publish new values
 
 	}
 
 	double add_step()
 	{
-		ros::Time time = ros::Time::now();
 		double slope[nhist];
 		double sum = 0;
-		double dt = time.toSec() - previousTime.toSec();
+		ros::Time time = ros::Time::now();
 		for(int i=c2+1;i<c2_max;i++)
 		{
 			slope[i] = (pos_history[2][i]-pos_history[2][i-1])/(pos_history[1][i]-pos_history[1][i-1]);
@@ -147,6 +152,7 @@ public:
 				slope[i]=0;
 			}
 			sum=sum+slope[i];
+//			std::cout<<std::abs(pos_history[2][i]-pos_history[2][i-1])<<std::endl;
 		}
 		for(int i=1;i<=c2;i++)
 		{
@@ -158,37 +164,49 @@ public:
 				slope[i]=0;
 			}
 			sum=sum+slope[i];
+//			std::cout<<std::abs(pos_history[2][i]-pos_history[2][i-1])<<std::endl;
 		}
-		//slope ranges from indices [1,39]
+		
 		sum=sum/c2_max;
-	    if (dt > 0)
-	    {
-	    	double d = kds*(sum-prev_sum)/dt;
-	    }
 		double p = std::abs(kps*sum);		
+		if (cp[2]>gp[2] && step_i>0)
+		{
+			step_i=step_i/sf;
+		}
+	    if (cp[2]<gp[2] && step_i<0)
+		{
+			step_i=step_i/sf;
+		}
+		
 		// Adjust additional input for relative position to goal height as well as direction of motion
 		if (cp[2]-gp[2]>0){
 			if(cp[2]-prev_cp[2]>0){
 				p=p*(-1);
+				step_i+=std::abs(sum);	
+				double i = std::max(-imax,std::min(-kis*step_i,imax));					
 			}
 			else{
 				p=0;
 			}
 		}
-		else if (cp[2]-gp[2]<0){
+	    if (cp[2]-gp[2]<0){
 			if(cp[2]-prev_cp[2]<0){
+				step_i+=std::abs(sum);	
+				double i = std::max(-imax,std::min(kis*step_i,imax));					
 			}
 			else{
 				p=0;
 			}
-
 		}
-		std::cout<<sum<<std::endl;
+
+		double i = std::max(-imax,std::min(kis*step_i,imax));
+		//std::cout<<sum<<std::endl;
 		std::cout<<p<<std::endl;
+		
+		//std::cout<<step_i<<std::endl;
+		std::cout<<i<<std::endl;
 		std::cout<<std::endl;
-		step_i+=sum;
-		prev_sum=sum;
-		double i = kis*step_i;	
+		
 		return (p+i);			
 	}
 
@@ -286,7 +304,7 @@ void callback(nano_quad::tunerConfig &config, uint32_t level)
 	maxOutput = config.maxOutput; // Minimum oputput to roll and pitch for safety
 	kps = config.kps; // kp for slope
 	kis = config.kis; // ki for slope	
-	kds = config.kds; // ki for slope	
+	sf = config.sf;
 }
 
 int main(int argc, char **argv)
